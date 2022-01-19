@@ -1,6 +1,7 @@
 package com.can.springsecuritytwologin.config;
 
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -13,15 +14,18 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.web.access.AccessDeniedHandler;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+
     @Bean
     public UserDetailsService userDetailsService() throws Exception {
 
         InMemoryUserDetailsManager manager = new InMemoryUserDetailsManager();
-        manager.createUser(User.withUsername("user").password(encoder().encode("userPass")).roles("USER").build());
+        manager.createUser(User.withUsername("user").password(encoder().encode("user")).roles("USER").build());
         manager.createUser(User.withUsername("admin").password(encoder().encode("admin")).roles("ADMIN").build());
         return manager;
     }
@@ -34,6 +38,8 @@ public class SecurityConfig {
     @Order(1)
     public static class App1ConfigurationAdapter extends WebSecurityConfigurerAdapter {
 
+        @Autowired
+        private AccessDeniedHandler accessDeniedHandler;
         public App1ConfigurationAdapter() {
             super();
         }
@@ -47,16 +53,17 @@ public class SecurityConfig {
         protected void configure(HttpSecurity http) throws Exception {
             http.antMatcher("/admin*").authorizeRequests().anyRequest().hasRole("ADMIN")
                     // log in
-                    .and().formLogin().loginPage("/loginAdmin").loginProcessingUrl("/admin_login").failureUrl("/loginAdmin.html?error=loginError").defaultSuccessUrl("/adminPage")
+                    .and().formLogin().loginPage("/loginAdmin").loginProcessingUrl("/admin_login").failureUrl("/failed").defaultSuccessUrl("/adminPage")
                     // logout
-                    .and().logout().logoutUrl("/admin_logout").logoutSuccessUrl("/protectedLinks").deleteCookies("JSESSIONID").and().exceptionHandling().accessDeniedPage("/403").and().csrf().disable();
+                    .and().logout().logoutUrl("/admin_logout").logoutSuccessUrl("/protectedLinks").deleteCookies("JSESSIONID").and().exceptionHandling().accessDeniedHandler(accessDeniedHandler).and().csrf().disable();
         }
     }
 
     @Configuration
     @Order(2)
     public static class App2ConfigurationAdapter extends WebSecurityConfigurerAdapter {
-
+        @Autowired
+        private AccessDeniedHandler accessDeniedHandler;
         public App2ConfigurationAdapter() {
             super();
         }
@@ -67,11 +74,11 @@ public class SecurityConfig {
         }
 
         protected void configure(HttpSecurity http) throws Exception {
-            http.antMatcher("/user*").authorizeRequests().anyRequest().hasRole("USER")
+            http.antMatcher("/user*").authorizeRequests().anyRequest().hasAnyRole("USER","ADMIN")
                     // log in
-                    .and().formLogin().loginPage("/loginUser").loginProcessingUrl("/user_login").failureUrl("/loginUser?error=loginError").defaultSuccessUrl("/userPage")
+                    .and().formLogin().loginPage("/loginUser").loginProcessingUrl("/user_login").failureUrl("/failed").defaultSuccessUrl("/userPage")
                     // logout
-                    .and().logout().logoutUrl("/user_logout").logoutSuccessUrl("/protectedLinks").deleteCookies("JSESSIONID").and().exceptionHandling().accessDeniedPage("/403").and().csrf().disable();
+                    .and().logout().logoutUrl("/user_logout").logoutSuccessUrl("/protectedLinks").deleteCookies("JSESSIONID").and().exceptionHandling().accessDeniedHandler(accessDeniedHandler).and().csrf().disable();
         }
     }
 
